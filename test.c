@@ -24,7 +24,7 @@ static void test_parse_null() {
 	json_value v;
 	v.type = JSON_TRUE;
 	EXPECT_EQ_INT(JSON_PARSE_OK,json_parse(&v,"null"))
-	EXPECT_EQ_INT(LEPT_NULL, lept_get_type(&v));
+	EXPECT_EQ_INT(JSON_NULL, lept_get_type(&v));
 }
 
 static void test_parse() {
