@@ -18,20 +18,20 @@ static int test_pass = 0;
 				}\
 		} while(0)
 
-#define EXPECT_EQ_INT(expect, actial) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
+#define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
 
 static void test_parse_null() {
 	json_value v;
 	v.type = JSON_TRUE;
-	EXPECT_EQ_INT(JSON_PARSE_OK,json_parse(&v,"null"))
-	EXPECT_EQ_INT(JSON_NULL, lept_get_type(&v));
+	EXPECT_EQ_INT(JSON_PARSE_OK,json_parse(&v,"null"));
+	EXPECT_EQ_INT(JSON_NULL, get_json_type(&v));
 }
 
 static void test_parse() {
 	test_parse_null();
 }
 
-int int main(int argc, char const *argv[]) {
+int main(int argc, char const *argv[]) {
 	test_parse();
 
     printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);

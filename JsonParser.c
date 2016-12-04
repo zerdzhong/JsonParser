@@ -1,25 +1,17 @@
 #include "JsonParser.h"
+#include <assert.h>
+#include <stdlib.h>
 
 typedef struct {
     const char *json;
 }json_context;
-
-
-int json_parse(json_value* v, const char* json) {
-    json_context context;
-    assert(v != null);
-    c.json = json;
-    v->type = JSON_NULL;
-    json_parse_whitespace(&c);
-    return json_parse_value(&c, v);
-}
 
 #define EXPECT(c, ch) do { assert(*c->json == (ch)); c->json++; } while(0)
 
 /* ws = *(%x20 / %x09 / %x0A / %x0D) */
 static void json_parse_whitespace(json_context *context) {
     const char *p = context->json;
-    while (*p == '' || *p == '\t' || *p == '\n' || *p == '\r') {
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {
         p ++;
     }
     context->json = p;
@@ -64,7 +56,7 @@ static int json_parse_false(json_context *context, json_value *value) {
 }
 
 /* value = null / false / true */
-static void json_parse_value(json_context *context, json_value *value) {
+static int json_parse_value(json_context *context, json_value *value) {
     switch (*context->json) {
         case 'n': return json_parse_null(context, value);
         case 't': return json_parse_true(context, value);
@@ -72,4 +64,18 @@ static void json_parse_value(json_context *context, json_value *value) {
         case '\0': return JSON_PARSE_EXPECT_VAVLUE;
         default : return JSON_PARSE_INVALID_VALUE;
     }
+}
+
+int json_parse(json_value* value, const char* json) {
+    json_context context;
+    assert(value != NULL);
+    context.json = json;
+    value->type = JSON_NULL;
+    json_parse_whitespace(&context);
+    return json_parse_value(&context, value);
+}
+
+json_type get_json_type(const json_value *value) {
+    assert(value != NULL);
+    return value->type;
 }

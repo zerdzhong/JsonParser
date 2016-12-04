@@ -9,11 +9,11 @@ typedef enum {
 	JSON_STRING,
 	JSON_ARRAY,
 	JSON_OBJECT
-} json_type
+} json_type;
 
 typedef struct {
 	json_type type;
-} json_value
+} json_value;
 
 enum  {
 	JSON_PARSE_OK = 0,
@@ -23,5 +23,6 @@ enum  {
 };
 
 int json_parse(json_value* v, const char* json);
+json_type get_json_type(const json_value *value);
 
 #endif
