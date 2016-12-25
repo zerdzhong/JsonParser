@@ -27,8 +27,24 @@ static void test_parse_null() {
 	EXPECT_EQ_INT(JSON_NULL, get_json_type(&v));
 }
 
+static void test_parse_true() {
+	json_value v;
+	v.type = JSON_NULL;
+	EXPECT_EQ_INT(JSON_PARSE_OK,json_parse(&v,"true"));
+	EXPECT_EQ_INT(JSON_TRUE, get_json_type(&v));
+}
+
+static void test_parse_false() {
+	json_value v;
+	v.type = JSON_NULL;
+	EXPECT_EQ_INT(JSON_PARSE_OK,json_parse(&v,"false"));
+	EXPECT_EQ_INT(JSON_FALSE, get_json_type(&v));
+}
+
 static void test_parse() {
 	test_parse_null();
+	test_parse_false();
+	test_parse_true();
 }
 
 int main(int argc, char const *argv[]) {
