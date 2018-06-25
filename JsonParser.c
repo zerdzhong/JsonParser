@@ -19,48 +19,32 @@ static void json_parse_whitespace(json_context *context) {
     context->json = p;
 }
 
-/* null  = "null" */
-static int json_parse_null(json_context *context, json_value *value) {
-    EXPECT(context, 'n');
+static int json_parse_literal(json_context *context,
+                              json_value *value,
+                              const char *literal,
+                              json_type type) {
 
-    const char *p = context->json;
-    if (p[0] != 'u' || p[1] != 'l' || p[2] != 'l') {
-        return JSON_PARSE_INVALID_VALUE;
+    size_t i = 0;
+    EXPECT(context, literal[0]);
+
+    for (i = 0; literal[i + 1]; i++) {
+        if (context->json[i] != literal[i + 1]) {
+            return JSON_PARSE_INVALID_VALUE;
+        }
     }
 
-    context->json += 3;
-    value->type = JSON_NULL;
+    context->json += i;
+    value->type = type;
+
     return JSON_PARSE_OK;
 }
 
-static int json_parse_true(json_context *context, json_value *value) {
-    EXPECT(context, 't');
-    const char *p = context->json;
-    if (p[0] != 'r' || p[1] != 'u' || p[2] != 'e') {
-        return JSON_PARSE_INVALID_VALUE;
-    }
-
-    context->json += 3;
-    value->type = JSON_TRUE;
-    return JSON_PARSE_OK;
-}
-
-static int json_parse_false(json_context *context, json_value *value) {
-    EXPECT(context, 'f');
-    const char *p = context->json;
-    if (p[0] != 'a' || p[1] != 'l' || p[2] != 's' || p[3] != 'e') {
-        return JSON_PARSE_INVALID_VALUE;
-    }
-
-    context->json += 5;
-    value->type = JSON_FALSE;
-    return JSON_PARSE_OK;
-}
-
-//number = [ "-" ] int [ frac ] [ exp ]
-//int = "0" / digit1-9 *digit
-//frac = "." 1*digit
-//exp = ("e" / "E") ["-" / "+"] 1*digit
+/*
+ * number = [ "-" ] int [ frac ] [ exp ]
+ * int = "0" / digit1-9 *digit
+ * frac = "." 1*digit
+ * exp = ("e" / "E") ["-" / "+"] 1*digit
+*/
 
 static double json_parse_number(json_context *context, json_value *value) {
     char* end;
@@ -105,9 +89,9 @@ static double json_parse_number(json_context *context, json_value *value) {
 /* value = null / false / true */
 static int json_parse_value(json_context *context, json_value *value) {
     switch (*context->json) {
-        case 'n': return json_parse_null(context, value);
-        case 't': return json_parse_true(context, value);
-        case 'f': return json_parse_false(context, value);
+        case 'n': return json_parse_literal(context, value, "null", JSON_NULL);
+        case 't': return json_parse_literal(context, value, "true", JSON_TRUE);
+        case 'f': return json_parse_literal(context, value, "false", JSON_FALSE);
         case '\0': return JSON_PARSE_EXPECT_VALUE;
         default : return json_parse_number(context, value);
     }
