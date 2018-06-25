@@ -12,17 +12,19 @@ typedef enum {
 } json_type;
 
 typedef struct {
+	double number;
 	json_type type;
 } json_value;
 
 enum  {
 	JSON_PARSE_OK = 0,
-	JSON_PARSE_EXPECT_VAVLUE,
+	JSON_PARSE_EXPECT_VALUE,
 	JSON_PARSE_INVALID_VALUE,
 	JSON_PARSE_ROOT_NOT_SINGULAR
 };
 
 int json_parse(json_value* v, const char* json);
 json_type get_json_type(const json_value *value);
+double get_json_number(const json_value *value);
 
 #endif
