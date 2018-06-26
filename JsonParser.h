@@ -1,6 +1,8 @@
 #ifndef JSON_PARSER_H_
 #define JSON_PARSER_H_
 
+#include <stdlib.h>
+
 typedef enum {
 	JSON_NULL,
 	JSON_FALSE,
@@ -12,7 +14,10 @@ typedef enum {
 } json_type;
 
 typedef struct {
-	double number;
+    union {
+        struct {char *str; size_t len;} string;
+        double number;
+    } u;
 	json_type type;
 } json_value;
 
@@ -24,7 +29,16 @@ enum  {
 };
 
 int json_parse(json_value* v, const char* json);
-json_type get_json_type(const json_value *value);
-double get_json_number(const json_value *value);
+json_type json_get_type(const json_value *value);
+
+double json_get_number(const json_value *value);
+void json_set_number(json_value *value, double number);
+
+int json_get_boolean(const json_value *value);
+void json_set_boolean(json_value *value, int b);
+
+const char* json_get_string(const json_value *value);
+void json_set_string(json_value *value, const char * s, size_t len);
+
 
 #endif

@@ -1,6 +1,6 @@
 #include "JsonParser.h"
 #include <assert.h>
-#include <stdlib.h>
+#include <memory.h>
 
 typedef struct {
     const char *json;
@@ -9,6 +9,8 @@ typedef struct {
 #define EXPECT(c, ch) do { assert(*c->json == (ch)); c->json++; } while(0)
 #define ISDIGIT(ch) ((ch) >= '0' && (ch) <= '9')
 #define ISDIGIT1TO9(ch) ((ch) >= '1' && (ch) <= '9')
+
+#define json_value_init(v) do {(v)->type = JSON_NULL;} while(0);
 
 /* ws = *(%x20 / %x09 / %x0A / %x0D) */
 static void json_parse_whitespace(json_context *context) {
@@ -46,7 +48,7 @@ static int json_parse_literal(json_context *context,
  * exp = ("e" / "E") ["-" / "+"] 1*digit
 */
 
-static double json_parse_number(json_context *context, json_value *value) {
+static int json_parse_number(json_context *context, json_value *value) {
     char* end;
 
     const char *p = context->json;
@@ -79,7 +81,7 @@ static double json_parse_number(json_context *context, json_value *value) {
         for (p++; ISDIGIT(*p); p++);
     }
 
-    value->number = strtod(context->json, &end);
+    value->u.number = strtod(context->json, &end);
     context->json = end;
     value->type = JSON_NUMBER;
 
@@ -97,6 +99,55 @@ static int json_parse_value(json_context *context, json_value *value) {
     }
 }
 
+void value_free(json_value *value) {
+    assert(NULL != value);
+
+    if (JSON_STRING == value->type) {
+        free(value->u.string.str);
+    }
+
+    value->type = JSON_NULL;
+}
+
+double json_get_number(const json_value *value) {
+    assert(value != NULL && JSON_NUMBER == value->type);
+    return value->u.number;
+}
+
+void json_set_number(json_value *value, double number)
+{
+    assert(value != NULL && JSON_NUMBER == value->type);
+    value->u.number = number;
+}
+
+
+int json_get_boolean(const json_value *value)
+{}
+
+void json_set_boolean(json_value *value, int b)
+{}
+
+
+const char* json_get_string(const json_value *value) {
+    assert(value != NULL && JSON_STRING == value->type);
+    return value->u.string.str;
+}
+
+
+void json_set_string(json_value *value, const char * s, size_t len) {
+    assert(NULL != value && (NULL != s || 0 != len));
+
+    value_free(value);
+
+    value->u.string.str = (char *)malloc(len + 1);
+    memcpy(value->u.string.str, s, len);
+    value->u.string.str[len] = '\0';
+    value->u.string.len = len;
+
+    value->type = JSON_STRING;
+}
+
+
 int json_parse(json_value* value, const char* json) {
     json_context context;
     assert(value != NULL);
@@ -106,13 +157,9 @@ int json_parse(json_value* value, const char* json) {
     return json_parse_value(&context, value);
 }
 
-json_type get_json_type(const json_value *value) {
+json_type json_get_type(const json_value *value) {
     assert(value != NULL);
     return value->type;
 }
 
-double get_json_number(const json_value *value) {
-    assert(value != NULL && JSON_NUMBER == value->type);
-    return value->number;
-}
 

@@ -26,7 +26,7 @@ static int test_pass = 0;
         json_value value;\
         value.type = JSON_FALSE;\
         EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, json));\
-		EXPECT_EQ_INT(expect, get_json_type(&value));\
+		EXPECT_EQ_INT(expect, json_get_type(&value));\
     } while (0)
 
 static void test_parse() {
@@ -36,14 +36,13 @@ static void test_parse() {
 
 }
 
-
 #define TEST_NUMBER(expect, json) \
 	do {\
 		json_value value;\
 		value.type = JSON_FALSE;\
 		EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, json));\
-		EXPECT_EQ_INT(JSON_NUMBER, get_json_type(&value));\
-		EXPECT_EQ_DOUBLE(expect, get_json_number(&value));\
+		EXPECT_EQ_INT(JSON_NUMBER, json_get_type(&value));\
+		EXPECT_EQ_DOUBLE(expect, json_get_number(&value));\
 	} while(0)
 
 
@@ -74,7 +73,7 @@ static void test_parse_number() {
         json_value value;\
         value.type = JSON_FALSE;\
         EXPECT_EQ_INT(expect, json_parse(&value, json));\
-		EXPECT_EQ_INT(JSON_NULL, get_json_type(&value));\
+		EXPECT_EQ_INT(JSON_NULL, json_get_type(&value));\
     } while (0)
 
 
