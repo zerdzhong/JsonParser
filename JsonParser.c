@@ -4,13 +4,47 @@
 
 typedef struct {
     const char *json;
+    char * stack;
+    size_t size, top;
 }json_context;
 
-#define EXPECT(c, ch) do { assert(*c->json == (ch)); c->json++; } while(0)
+#define EXPECT(c, ch) do { assert(*(c)->json == (ch)); (c)->json++; } while(0)
 #define ISDIGIT(ch) ((ch) >= '0' && (ch) <= '9')
 #define ISDIGIT1TO9(ch) ((ch) >= '1' && (ch) <= '9')
 
-#define json_value_init(v) do {(v)->type = JSON_NULL;} while(0);
+#define json_value_init(v) do {(v)->type = JSON_NULL;} while(0)
+#define json_set_null(v) do {value_free((v))} while(0)
+
+#ifndef JSON_PARSE_STACK_INIT_SIZE
+#define JSON_PARSE_STACK_INIT_SIZE 256
+#endif
+
+static void* json_context_push(json_context *context, size_t size) {
+    void * ret;
+    assert(size > 0);
+
+    if (context->top + size > context->size) {
+        if (0 == context->size) {
+            context->size = JSON_PARSE_STACK_INIT_SIZE;
+        }
+
+        while (context->top + size >= context->size) {
+            /* 1.5 times */
+            context->size += context->size >> 1;
+        }
+
+        context->stack = (char *)realloc(context->stack, context->size);
+    }
+
+    ret = context->stack + context->top;
+    context->top += size;
+    return ret;
+}
+
+static void* json_context_pop(json_context *context, size_t size) {
+    assert(context->top >= size);
+    return context->stack + (context->top -= size);
+}
 
 /* ws = *(%x20 / %x09 / %x0A / %x0D) */
 static void json_parse_whitespace(json_context *context) {
@@ -88,12 +122,39 @@ static int json_parse_number(json_context *context, json_value *value) {
     return JSON_PARSE_OK;
 }
 
+#define PUTC(c, ch) do { *(char*)json_context_push(c, sizeof(char)) = (ch); } while(0)
+
+static int json_parse_string(json_context *context, json_value *value) {
+    size_t head = context->top, len;
+    const char *p;
+    EXPECT(context, '\"');
+
+    p = context->json;
+
+    for (;;) {
+        char ch = *p++;
+        switch (ch) {
+            case '\"':
+                len = context->top - head;
+                json_set_string(value, (const char *)json_context_pop(context, len), len);
+                return JSON_PARSE_OK;
+            case '\0':
+                context->top = head;
+                return JSON_PARSE_MISS_QUOTATION_MARK;
+            default:
+                PUTC(context, ch);
+        }
+    }
+
+}
+
 /* value = null / false / true */
 static int json_parse_value(json_context *context, json_value *value) {
     switch (*context->json) {
         case 'n': return json_parse_literal(context, value, "null", JSON_NULL);
         case 't': return json_parse_literal(context, value, "true", JSON_TRUE);
         case 'f': return json_parse_literal(context, value, "false", JSON_FALSE);
+        case '\"': return json_parse_string(context, value);
         case '\0': return JSON_PARSE_EXPECT_VALUE;
         default : return json_parse_number(context, value);
     }
@@ -122,20 +183,29 @@ void json_set_number(json_value *value, double number)
 
 
 int json_get_boolean(const json_value *value)
-{}
+{
+    return 0;
+}
 
 void json_set_boolean(json_value *value, int b)
 {}
 
 
+size_t json_get_string_length(const json_value *value)
+{
+    assert(NULL != value && JSON_STRING == value->type);
+    return value->u.string.len;
+}
+
+
 const char* json_get_string(const json_value *value) {
-    assert(value != NULL && JSON_STRING == value->type);
+    assert(NULL != value && JSON_STRING == value->type);
     return value->u.string.str;
 }
 
 
 void json_set_string(json_value *value, const char * s, size_t len) {
-    assert(NULL != value && (NULL != s || 0 != len));
+    assert(NULL != value && (NULL != s || 0 == len));
 
     value_free(value);
 
@@ -150,11 +220,23 @@ void json_set_string(json_value *value, const char * s, size_t len) {
 
 int json_parse(json_value* value, const char* json) {
     json_context context;
+    int ret;
     assert(value != NULL);
     context.json = json;
-    value->type = JSON_NULL;
+    context.stack = NULL;
+    context.size = context.top = 0;
+
+    json_value_init(value);
     json_parse_whitespace(&context);
-    return json_parse_value(&context, value);
+
+    if (JSON_PARSE_OK == (ret = json_parse_value(&context, value))) {
+
+    }
+
+    assert(0 == context.top);
+    free(context.stack);
+
+    return ret;
 }
 
 json_type json_get_type(const json_value *value) {

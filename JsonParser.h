@@ -25,7 +25,8 @@ enum  {
 	JSON_PARSE_OK = 0,
 	JSON_PARSE_EXPECT_VALUE,
 	JSON_PARSE_INVALID_VALUE,
-	JSON_PARSE_ROOT_NOT_SINGULAR
+	JSON_PARSE_ROOT_NOT_SINGULAR,
+	JSON_PARSE_MISS_QUOTATION_MARK
 };
 
 int json_parse(json_value* v, const char* json);
@@ -37,6 +38,7 @@ void json_set_number(json_value *value, double number);
 int json_get_boolean(const json_value *value);
 void json_set_boolean(json_value *value, int b);
 
+size_t json_get_string_length(const json_value *value);
 const char* json_get_string(const json_value *value);
 void json_set_string(json_value *value, const char * s, size_t len);
 
