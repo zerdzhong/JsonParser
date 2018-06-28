@@ -29,8 +29,14 @@ enum  {
 	JSON_PARSE_MISS_QUOTATION_MARK
 };
 
+#define json_value_init(v) do {(v)->type = JSON_NULL;} while(0)
+#define json_set_null(v) do {value_free((v));} while(0)
+
+
 int json_parse(json_value* v, const char* json);
 json_type json_get_type(const json_value *value);
+
+void value_free(json_value *value);
 
 double json_get_number(const json_value *value);
 void json_set_number(json_value *value, double number);

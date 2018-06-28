@@ -12,9 +12,6 @@ typedef struct {
 #define ISDIGIT(ch) ((ch) >= '0' && (ch) <= '9')
 #define ISDIGIT1TO9(ch) ((ch) >= '1' && (ch) <= '9')
 
-#define json_value_init(v) do {(v)->type = JSON_NULL;} while(0)
-#define json_set_null(v) do {value_free((v))} while(0)
-
 #ifndef JSON_PARSE_STACK_INIT_SIZE
 #define JSON_PARSE_STACK_INIT_SIZE 256
 #endif
@@ -141,6 +138,22 @@ static int json_parse_string(json_context *context, json_value *value) {
             case '\0':
                 context->top = head;
                 return JSON_PARSE_MISS_QUOTATION_MARK;
+            case '\\':
+                switch (*p++) {
+                    case '\\': PUTC(context,'\\'); break;
+                    case '/': PUTC(context,'/'); break;
+                    case '\"': PUTC(context,'\"'); break;
+                    case 'b': PUTC(context,'\b'); break;
+                    case 'f': PUTC(context,'\f'); break;
+                    case 'n': PUTC(context,'\n'); break;
+                    case 'r': PUTC(context,'\r'); break;
+                    case 't': PUTC(context,'\t'); break;
+                    default: {
+                        context->top = head;
+                        return JSON_PARSE_MISS_QUOTATION_MARK;
+                    }
+                }
+                break;
             default:
                 PUTC(context, ch);
         }
@@ -175,20 +188,25 @@ double json_get_number(const json_value *value) {
     return value->u.number;
 }
 
-void json_set_number(json_value *value, double number)
-{
-    assert(value != NULL && JSON_NUMBER == value->type);
+void json_set_number(json_value *value, double number) {
+    assert(value != NULL);
+    value_free(value);
     value->u.number = number;
+    value->type = JSON_NUMBER;
 }
 
 
-int json_get_boolean(const json_value *value)
-{
-    return 0;
+int json_get_boolean(const json_value *value) {
+    assert(value != NULL && (JSON_TRUE == value->type || JSON_FALSE == value->type ));
+    return value->type == JSON_TRUE;
 }
 
-void json_set_boolean(json_value *value, int b)
-{}
+void json_set_boolean(json_value *value, int b) {
+    assert(value != NULL);
+    value_free(value);
+
+    value->type = b ? JSON_TRUE : JSON_FALSE;
+}
 
 
 size_t json_get_string_length(const json_value *value)

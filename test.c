@@ -104,18 +104,51 @@ static void test_parse_invalid_number() {
 static void test_parse_string() {
     TEST_STRING("", "\"\"");
     TEST_STRING("Hello", "\"Hello\"");
-#if 0
     TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
     TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
-#endif
+}
+
+static void test_access_number() {
+    json_value value;
+    json_value_init(&value);
+
+    json_set_number(&value, 0.0);
+    EXPECT_EQ_DOUBLE(0.0, json_get_number(&value));
+    json_set_number(&value, 5.1);
+    EXPECT_EQ_DOUBLE(5.1, json_get_number(&value));
+}
+
+static void test_access_string() {
+    json_value value;
+    json_value_init(&value);
+
+    json_set_string(&value, "", 0);
+    EXPECT_EQ_STRING("", json_get_string(&value), 0);
+    json_set_string(&value, "test", 4);
+    EXPECT_EQ_STRING("test", json_get_string(&value), 4);
+
+    json_set_null(&value);
+}
+
+static void test_access_boolean() {
+    json_value value;
+    json_value_init(&value);
+
+    json_set_boolean(&value, 1);
+    EXPECT_EQ_INT(1, json_get_boolean(&value));
+    json_set_boolean(&value, 0);
+    EXPECT_EQ_INT(0, json_get_boolean(&value));
 }
 
 int main(int argc, char const *argv[]) {
 	test_parse();
 	test_parse_number();
 	test_parse_invalid_number();
-
     test_parse_string();
+
+    test_access_number();
+    test_access_string();
+    test_access_boolean();
 
     printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
