@@ -78,7 +78,6 @@ static int json_parse_literal(json_context *context,
  * frac = "." 1*digit
  * exp = ("e" / "E") ["-" / "+"] 1*digit
 */
-
 static int json_parse_number(json_context *context, json_value *value) {
     char* end;
 
@@ -119,10 +118,56 @@ static int json_parse_number(json_context *context, json_value *value) {
     return JSON_PARSE_OK;
 }
 
+
 #define PUTC(c, ch) do { *(char*)json_context_push(c, sizeof(char)) = (ch); } while(0)
+#define STRING_PARSE_ERR(e) do {context->top = head;return e;} while(0)
+
+
+
+static const char* json_parse_hex(const char *p, unsigned *unicode){
+    int i = 0;
+    *unicode = 0;
+    for (i = 0; i < 4; ++i) {
+        char ch = *p++;
+        *unicode <<= 4;
+        if      (ch >= '0' && ch <= '9')  *unicode |= ch - '0';
+        else if (ch >= 'A' && ch <= 'F')  *unicode |= ch - ('A' - 10);
+        else if (ch >= 'a' && ch <= 'f')  *unicode |= ch - ('a' - 10);
+        else return NULL;
+    }
+
+    return p;
+}
+
+/*  码点范围        码点位数    byte1           byte2           byte3           byte4
+ * 0x0000-0x007F      7      0xxxxxxx
+ * 0x0080-0x07ff      11     110xxxxx         10xxxxxx
+ * 0x0800-0xffff      16     1110xxxx         10xxxxxx        10xxxxxx
+ * 0x10000-0x10ffff   21     11110xxx         10xxxxxx        10xxxxxx        10xxxxxx
+ */
+static void json_encode_utf8(json_context *context, unsigned unicode) {
+    assert(0x0000 <= unicode  && unicode <= 0x10ffff);
+
+    if (unicode <= 0x007f) {
+        PUTC(context, unicode);
+    } else if (unicode <= 0x07ff) {
+        PUTC(context, 0xC0 | unicode >> 6 & 0xFF);
+        PUTC(context, 0x80 | unicode & 0x3F);
+    }else if (unicode <= 0xffff) {
+        PUTC(context, 0xE0 | unicode >> 12 & 0xFF);
+        PUTC(context, 0x80 | unicode >> 6 & 0x3F);
+        PUTC(context, 0x80 | unicode & 0x3F);
+    } else  {
+        PUTC(context, 0xF0 | (unicode >> 18 & 0xFF) );
+        PUTC(context, 0x80 | (unicode >> 12 & 0x3F) );
+        PUTC(context, 0x80 | (unicode >> 6 & 0x3F) );
+        PUTC(context, 0x80 | (unicode & 0x3F) );
+    }
+}
 
 static int json_parse_string(json_context *context, json_value *value) {
     size_t head = context->top, len;
+    unsigned u;
     const char *p;
     EXPECT(context, '\"');
 
@@ -136,8 +181,7 @@ static int json_parse_string(json_context *context, json_value *value) {
                 json_set_string(value, (const char *)json_context_pop(context, len), len);
                 return JSON_PARSE_OK;
             case '\0':
-                context->top = head;
-                return JSON_PARSE_MISS_QUOTATION_MARK;
+                STRING_PARSE_ERR(JSON_PARSE_MISS_QUOTATION_MARK);
             case '\\':
                 switch (*p++) {
                     case '\\': PUTC(context,'\\'); break;
@@ -148,16 +192,20 @@ static int json_parse_string(json_context *context, json_value *value) {
                     case 'n': PUTC(context,'\n'); break;
                     case 'r': PUTC(context,'\r'); break;
                     case 't': PUTC(context,'\t'); break;
+                    case 'u':
+                        if (!(p = json_parse_hex(p, &u))) {
+                            STRING_PARSE_ERR(JSON_PARSE_INVALID_UNICODE_HEX);
+                        }
+                        json_encode_utf8(context, u);
+                        break;
                     default: {
-                        context->top = head;
-                        return JSON_PARSE_MISS_QUOTATION_MARK;
+                        STRING_PARSE_ERR(JSON_PARSE_MISS_QUOTATION_MARK);
                     }
                 }
                 break;
             default:
                 if ((unsigned char)ch < 0x20) {
-                    context->top = head;
-                    return JSON_PARSE_INVALID_STRING_CHAR;
+                    STRING_PARSE_ERR(JSON_PARSE_INVALID_STRING_CHAR);
                 }
                 PUTC(context, ch);
         }
