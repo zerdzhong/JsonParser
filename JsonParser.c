@@ -155,6 +155,10 @@ static int json_parse_string(json_context *context, json_value *value) {
                 }
                 break;
             default:
+                if ((unsigned char)ch < 0x20) {
+                    context->top = head;
+                    return JSON_PARSE_INVALID_STRING_CHAR;
+                }
                 PUTC(context, ch);
         }
     }
