@@ -196,6 +196,20 @@ static int json_parse_string(json_context *context, json_value *value) {
                         if (!(p = json_parse_hex(p, &u))) {
                             STRING_PARSE_ERR(JSON_PARSE_INVALID_UNICODE_HEX);
                         }
+                        if (0xD800 <= u && u <= 0xDBFF) {  /* surrogate pair */
+                            unsigned H = u, L = 0;
+                            if (*p++ != '\\' || *p++ != 'u') {
+                                STRING_PARSE_ERR(JSON_PARSE_INVALID_UNICODE_SURROGATE);
+                            }
+                            if (!(p = json_parse_hex(p, &L))) {
+                                STRING_PARSE_ERR(JSON_PARSE_INVALID_UNICODE_HEX);
+                            }
+                            if (0xDC00 > L || L > 0xDD1E) {
+                                STRING_PARSE_ERR(JSON_PARSE_INVALID_UNICODE_SURROGATE);
+                            }
+
+                            u = 0x10000 + (H - 0xD800) * 0x400 +  (L - 0xDC00);
+                        }
                         json_encode_utf8(context, u);
                         break;
                     default: {
