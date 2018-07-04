@@ -8,6 +8,8 @@ typedef struct {
     size_t size, top;
 }json_context;
 
+static int json_parse_value(json_context *context, json_value *value);
+
 #define EXPECT(c, ch) do { assert(*(c)->json == (ch)); (c)->json++; } while(0)
 #define ISDIGIT(ch) ((ch) >= '0' && (ch) <= '9')
 #define ISDIGIT1TO9(ch) ((ch) >= '1' && (ch) <= '9')
@@ -111,8 +113,8 @@ static int json_parse_number(json_context *context, json_value *value) {
         for (p++; ISDIGIT(*p); p++);
     }
 
-    value->u.number = strtod(context->json, &end);
-    context->json = end;
+    value->u.number = strtod(context->json, NULL);
+    context->json = p;
     value->type = JSON_NUMBER;
 
     return JSON_PARSE_OK;
@@ -121,8 +123,6 @@ static int json_parse_number(json_context *context, json_value *value) {
 
 #define PUTC(c, ch) do { *(char*)json_context_push(c, sizeof(char)) = (ch); } while(0)
 #define STRING_PARSE_ERR(e) do {context->top = head;return e;} while(0)
-
-
 
 static const char* json_parse_hex(const char *p, unsigned *unicode){
     int i = 0;
@@ -179,6 +179,7 @@ static int json_parse_string(json_context *context, json_value *value) {
             case '\"':
                 len = context->top - head;
                 json_set_string(value, (const char *)json_context_pop(context, len), len);
+                context->json = p;
                 return JSON_PARSE_OK;
             case '\0':
                 STRING_PARSE_ERR(JSON_PARSE_MISS_QUOTATION_MARK);
@@ -227,6 +228,55 @@ static int json_parse_string(json_context *context, json_value *value) {
 
 }
 
+/*
+ * array = %x5B ws [ value *( ws %x2C ws value ) ] ws %x5D
+ */
+static int json_parse_array(json_context *context, json_value *value) {
+    size_t size = 0;
+    int ret = 0;
+//    const char *p;
+    EXPECT(context, '[');
+
+//    p = context->json;
+
+    if (']' == *context->json) {
+        context->json ++;
+        value->type = JSON_ARRAY;
+        value->u.array.len = 0;
+        value->u.array.value = NULL;
+        return JSON_PARSE_OK;
+    }
+
+    for (;;) {
+        json_value element;
+        json_value_init(&element);
+
+        if ((ret = json_parse_value(context, &element)) != JSON_PARSE_OK) {
+            return ret;
+        }
+
+        memcpy(json_context_push(context, sizeof(json_value)), &element, sizeof(json_value));
+        size++;
+
+        if (*context->json == ',') {
+            context->json ++;
+        } else if (*context->json == ']') {
+            context->json ++;
+            value->type = JSON_ARRAY;
+            value->u.array.len = size;
+            size *= sizeof(json_value);
+            value->u.array.value = (json_value *)malloc(size);
+            memcpy(value->u.array.value, json_context_pop(context, size), size);
+
+            return JSON_PARSE_OK;
+        } else {
+            return JSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+        }
+
+    }
+
+}
+
 /* value = null / false / true */
 static int json_parse_value(json_context *context, json_value *value) {
     switch (*context->json) {
@@ -234,12 +284,13 @@ static int json_parse_value(json_context *context, json_value *value) {
         case 't': return json_parse_literal(context, value, "true", JSON_TRUE);
         case 'f': return json_parse_literal(context, value, "false", JSON_FALSE);
         case '\"': return json_parse_string(context, value);
+        case '[': return json_parse_array(context, value);
         case '\0': return JSON_PARSE_EXPECT_VALUE;
         default : return json_parse_number(context, value);
     }
 }
 
-void value_free(json_value *value) {
+void json_value_free(json_value *value) {
     assert(NULL != value);
 
     if (JSON_STRING == value->type) {
@@ -256,7 +307,7 @@ double json_get_number(const json_value *value) {
 
 void json_set_number(json_value *value, double number) {
     assert(value != NULL);
-    value_free(value);
+    json_value_free(value);
     value->u.number = number;
     value->type = JSON_NUMBER;
 }
@@ -269,7 +320,7 @@ int json_get_boolean(const json_value *value) {
 
 void json_set_boolean(json_value *value, int b) {
     assert(value != NULL);
-    value_free(value);
+    json_value_free(value);
 
     value->type = b ? JSON_TRUE : JSON_FALSE;
 }
@@ -291,7 +342,7 @@ const char* json_get_string(const json_value *value) {
 void json_set_string(json_value *value, const char * s, size_t len) {
     assert(NULL != value && (NULL != s || 0 == len));
 
-    value_free(value);
+    json_value_free(value);
 
     value->u.string.str = (char *)malloc(len + 1);
     memcpy(value->u.string.str, s, len);
@@ -299,6 +350,18 @@ void json_set_string(json_value *value, const char * s, size_t len) {
     value->u.string.len = len;
 
     value->type = JSON_STRING;
+}
+
+const json_value* json_get_array_element(const json_value *value, unsigned index)
+{
+    assert(NULL != value && JSON_ARRAY == value->type);
+    return &value->u.array.value[index];
+}
+
+size_t json_get_array_size(const json_value *value)
+{
+    assert(NULL != value && JSON_ARRAY == value->type);
+    return value->u.array.len;
 }
 
 

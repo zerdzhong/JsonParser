@@ -160,11 +160,26 @@ static void test_parse_invalid_unicode_hex() {
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_HEX, "\"\\u000G\"");
 }
 
+static void test_parse_array() {
+    size_t i,j;
+    json_value value;
+
+    json_value_init(&value);
+
+    EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, "[\"abc\",[1,2,3],4]"));
+    EXPECT_EQ_INT(JSON_ARRAY, json_get_type(&value));
+    EXPECT_EQ_INT(3, json_get_array_size(&value));
+    EXPECT_EQ_INT(4, json_get_number(json_get_array_element(&value, 2)));
+
+    json_value_free(&value);
+}
+
 int main(int argc, char const *argv[]) {
 	test_parse();
 	test_parse_number();
 	test_parse_invalid_number();
     test_parse_string();
+    test_parse_array();
 
     test_access_number();
     test_access_string();
