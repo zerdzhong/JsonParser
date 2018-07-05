@@ -18,6 +18,7 @@ static int test_pass = 0;
 				}\
 		} while(0)
 
+#define EXPECT_EQ_UNSIGNED(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%lu")
 #define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
 #define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%f")
 #define EXPECT_EQ_STRING(expect, actual, alength) \
@@ -132,6 +133,8 @@ static void test_access_string() {
     json_set_string(&value, "test", 4);
     EXPECT_EQ_STRING("test", json_get_string(&value), 4);
 
+    EXPECT_EQ_UNSIGNED((size_t)4 ,json_get_string_length(&value));
+
     json_set_null(&value);
 }
 
@@ -161,15 +164,14 @@ static void test_parse_invalid_unicode_hex() {
 }
 
 static void test_parse_array() {
-    size_t i,j;
     json_value value;
 
     json_value_init(&value);
 
     EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, "[\"abc\",[1,2,3],4]"));
     EXPECT_EQ_INT(JSON_ARRAY, json_get_type(&value));
-    EXPECT_EQ_INT(3, json_get_array_size(&value));
-    EXPECT_EQ_INT(4, json_get_number(json_get_array_element(&value, 2)));
+    EXPECT_EQ_UNSIGNED((size_t)3, json_get_array_size(&value));
+    EXPECT_EQ_DOUBLE((double)4, json_get_number(json_get_array_element(&value, 2)));
 
     json_value_free(&value);
 }
