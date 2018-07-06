@@ -81,8 +81,6 @@ static int json_parse_literal(json_context *context,
  * exp = ("e" / "E") ["-" / "+"] 1*digit
 */
 static int json_parse_number(json_context *context, json_value *value) {
-    char* end;
-
     const char *p = context->json;
 
     if ('-' == *p) p++;
@@ -234,10 +232,9 @@ static int json_parse_string(json_context *context, json_value *value) {
 static int json_parse_array(json_context *context, json_value *value) {
     size_t size = 0;
     int ret = 0;
-//    const char *p;
     EXPECT(context, '[');
 
-//    p = context->json;
+    json_parse_whitespace(context);
 
     if (']' == *context->json) {
         context->json ++;
@@ -258,8 +255,11 @@ static int json_parse_array(json_context *context, json_value *value) {
         memcpy(json_context_push(context, sizeof(json_value)), &element, sizeof(json_value));
         size++;
 
+        json_parse_whitespace(context);
+
         if (*context->json == ',') {
             context->json ++;
+            json_parse_whitespace(context);
         } else if (*context->json == ']') {
             context->json ++;
             value->type = JSON_ARRAY;

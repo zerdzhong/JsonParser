@@ -174,6 +174,16 @@ static void test_parse_array() {
     EXPECT_EQ_DOUBLE((double)4, json_get_number(json_get_array_element(&value, 2)));
 
     json_value_free(&value);
+
+
+    json_value_init(&value);
+
+    EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, "[ null , false , true , 123 , \"abc\" ]"));
+    EXPECT_EQ_INT(JSON_ARRAY, json_get_type(&value));
+    EXPECT_EQ_UNSIGNED((size_t)5, json_get_array_size(&value));
+    EXPECT_EQ_DOUBLE((double)123, json_get_number(json_get_array_element(&value, 3)));
+
+    json_value_free(&value);
 }
 
 int main(int argc, char const *argv[]) {
