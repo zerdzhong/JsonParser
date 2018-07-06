@@ -18,7 +18,7 @@ static int test_pass = 0;
 				}\
 		} while(0)
 
-#define EXPECT_EQ_UNSIGNED(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%lu")
+#define EXPECT_EQ_UNSIGNEDLONG(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%lu")
 #define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
 #define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%f")
 #define EXPECT_EQ_STRING(expect, actual, alength) \
@@ -133,7 +133,7 @@ static void test_access_string() {
     json_set_string(&value, "test", 4);
     EXPECT_EQ_STRING("test", json_get_string(&value), 4);
 
-    EXPECT_EQ_UNSIGNED((size_t)4 ,json_get_string_length(&value));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)4 ,json_get_string_length(&value));
 
     json_set_null(&value);
 }
@@ -170,7 +170,7 @@ static void test_parse_array() {
 
     EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, "[\"abc\",[1,2,3],4]"));
     EXPECT_EQ_INT(JSON_ARRAY, json_get_type(&value));
-    EXPECT_EQ_UNSIGNED((size_t)3, json_get_array_size(&value));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)3, json_get_array_size(&value));
     EXPECT_EQ_DOUBLE((double)4, json_get_number(json_get_array_element(&value, 2)));
 
     json_value_free(&value);
@@ -180,8 +180,42 @@ static void test_parse_array() {
 
     EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, "[ null , false , true , 123 , \"abc\" ]"));
     EXPECT_EQ_INT(JSON_ARRAY, json_get_type(&value));
-    EXPECT_EQ_UNSIGNED((size_t)5, json_get_array_size(&value));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)5, json_get_array_size(&value));
+
+    EXPECT_EQ_INT(JSON_NULL, json_get_type(json_get_array_element(&value, 0)));
+    EXPECT_EQ_INT(JSON_FALSE, json_get_type(json_get_array_element(&value, 1)));
+    EXPECT_EQ_INT(JSON_TRUE, json_get_type(json_get_array_element(&value, 2)));
     EXPECT_EQ_DOUBLE((double)123, json_get_number(json_get_array_element(&value, 3)));
+    EXPECT_EQ_STRING("abc",
+                     json_get_string(json_get_array_element(&value, 4)),
+                     json_get_string_length(json_get_array_element(&value, 4)));
+
+    json_value_free(&value);
+
+    json_value_init(&value);
+
+    EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&value, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"));
+    EXPECT_EQ_INT(JSON_ARRAY, json_get_type(&value));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)4, json_get_array_size(&value));
+
+    EXPECT_EQ_INT(JSON_ARRAY, json_get_type(json_get_array_element(&value, 0)));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)0, json_get_array_size(json_get_array_element(&value, 0)));
+
+    EXPECT_EQ_INT(JSON_ARRAY, json_get_type(json_get_array_element(&value, 1)));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)1, json_get_array_size(json_get_array_element(&value, 1)));
+    EXPECT_EQ_DOUBLE((double)0, json_get_number(json_get_array_element(json_get_array_element(&value, 1),0)));
+
+    EXPECT_EQ_INT(JSON_ARRAY, json_get_type(json_get_array_element(&value, 2)));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)2, json_get_array_size(json_get_array_element(&value, 2)));
+    EXPECT_EQ_DOUBLE((double)0, json_get_number(json_get_array_element(json_get_array_element(&value, 2),0)));
+    EXPECT_EQ_DOUBLE((double)1, json_get_number(json_get_array_element(json_get_array_element(&value, 2),1)));
+
+    EXPECT_EQ_INT(JSON_ARRAY, json_get_type(json_get_array_element(&value, 3)));
+    EXPECT_EQ_UNSIGNEDLONG((size_t)3, json_get_array_size(json_get_array_element(&value, 3)));
+    EXPECT_EQ_DOUBLE((double)0, json_get_number(json_get_array_element(json_get_array_element(&value, 3),0)));
+    EXPECT_EQ_DOUBLE((double)1, json_get_number(json_get_array_element(json_get_array_element(&value, 3),1)));
+    EXPECT_EQ_DOUBLE((double)2, json_get_number(json_get_array_element(json_get_array_element(&value, 3),2)));
+
 
     json_value_free(&value);
 }
