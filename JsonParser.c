@@ -230,7 +230,7 @@ static int json_parse_string(json_context *context, json_value *value) {
  * array = %x5B ws [ value *( ws %x2C ws value ) ] ws %x5D
  */
 static int json_parse_array(json_context *context, json_value *value) {
-    size_t size = 0;
+    size_t size = 0 ,i = 0;
     int ret = 0;
     EXPECT(context, '[');
 
@@ -249,7 +249,7 @@ static int json_parse_array(json_context *context, json_value *value) {
         json_value_init(&element);
 
         if ((ret = json_parse_value(context, &element)) != JSON_PARSE_OK) {
-            return ret;
+            break;
         }
 
         memcpy(json_context_push(context, sizeof(json_value)), &element, sizeof(json_value));
@@ -270,11 +270,16 @@ static int json_parse_array(json_context *context, json_value *value) {
 
             return JSON_PARSE_OK;
         } else {
-            return JSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+            ret = JSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+            break;
         }
-
     }
 
+    for ( i = 0; i < size; ++i) {
+        json_value_free(json_context_pop(context, sizeof(json_value)));
+    }
+
+    return ret;
 }
 
 /* value = null / false / true */
@@ -291,10 +296,19 @@ static int json_parse_value(json_context *context, json_value *value) {
 }
 
 void json_value_free(json_value *value) {
+    int i = 0;
+
     assert(NULL != value);
 
     if (JSON_STRING == value->type) {
         free(value->u.string.str);
+    } else if (JSON_ARRAY == value->type) {
+
+        for (i = 0; i < value->u.array.len; ++i) {
+            json_value_free(&value->u.array.value[i]);
+        }
+
+        free(value->u.array.value);
     }
 
     value->type = JSON_NULL;
