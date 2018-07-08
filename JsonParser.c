@@ -163,8 +163,8 @@ static void json_encode_utf8(json_context *context, unsigned unicode) {
     }
 }
 
-static int json_parse_string(json_context *context, json_value *value) {
-    size_t head = context->top, len;
+static int json_parse_string_raw(json_context *context, char **str, size_t *len) {
+    size_t head = context->top;
     unsigned u;
     const char *p;
     EXPECT(context, '\"');
@@ -175,8 +175,8 @@ static int json_parse_string(json_context *context, json_value *value) {
         char ch = *p++;
         switch (ch) {
             case '\"':
-                len = context->top - head;
-                json_set_string(value, (const char *)json_context_pop(context, len), len);
+                *len = context->top - head;
+                *str = (char *)json_context_pop(context, *len);
                 context->json = p;
                 return JSON_PARSE_OK;
             case '\0':
@@ -223,7 +223,16 @@ static int json_parse_string(json_context *context, json_value *value) {
                 PUTC(context, ch);
         }
     }
+}
 
+static int json_parse_string(json_context *context, json_value *value) {
+    int ret; char *str; size_t len;
+
+    if ((ret = json_parse_string_raw(context, &str, &len)) == JSON_PARSE_OK) {
+        json_set_string(value, str, len);
+    }
+
+    return ret;
 }
 
 /*
@@ -239,7 +248,7 @@ static int json_parse_array(json_context *context, json_value *value) {
     if (']' == *context->json) {
         context->json ++;
         value->type = JSON_ARRAY;
-        value->u.array.len = 0;
+        value->u.array.size = 0;
         value->u.array.value = NULL;
         return JSON_PARSE_OK;
     }
@@ -263,7 +272,7 @@ static int json_parse_array(json_context *context, json_value *value) {
         } else if (*context->json == ']') {
             context->json ++;
             value->type = JSON_ARRAY;
-            value->u.array.len = size;
+            value->u.array.size = size;
             size *= sizeof(json_value);
             value->u.array.value = (json_value *)malloc(size);
             memcpy(value->u.array.value, json_context_pop(context, size), size);
@@ -282,6 +291,93 @@ static int json_parse_array(json_context *context, json_value *value) {
     return ret;
 }
 
+/*
+ * member = string ws %x3A ws value
+ * object = %x7B ws [ member *( ws %x2C ws member ) ] ws %x7D
+ *
+ */
+static int json_parse_object(json_context *context, json_value *value) {
+    size_t size = 0 ,i = 0;
+    int ret = 0;
+    json_member member;
+    EXPECT(context, '{');
+
+    json_parse_whitespace(context);
+
+    if ('}' == *context->json) {
+        context->json ++;
+        value->type = JSON_OBJECT;
+        value->u.object.size= 0;
+        value->u.object.member = NULL;
+        return JSON_PARSE_OK;
+    }
+
+    member.key = NULL;
+
+    for (;;) {
+        json_value_init(&member.value);
+
+        /* parse key to m.k, m.key_len */
+        if ('\"' !=  *context->json) {
+            ret = JSON_PARSE_MISS_KEY;
+            break;
+        }
+
+        char *str; size_t len;
+        if ((ret = json_parse_string_raw(context, &str, &len)) != JSON_PARSE_OK) {
+            break;
+        }
+
+        member.key = str;
+        member.key_len = len;
+
+        /*parse ws colon ws*/
+        json_parse_whitespace(context);
+
+        if (':' != *context->json) {
+            ret = JSON_PARSE_MISS_COLON;
+            break;
+        }
+
+        context->json ++;
+
+        /* parse value */
+        if ((ret = json_parse_value(context, &member.value)) != JSON_PARSE_OK) {
+            break;
+        }
+
+        memcpy(json_context_push(context, sizeof(json_member)), &member, sizeof(json_member));
+        size++;
+        member.key = NULL;
+
+        /* parse ws [comma | right-curly-brace] ws */
+        json_parse_whitespace(context);
+        if (',' == *context->json) {
+            context->json ++;
+            json_parse_whitespace(context);
+        } else if ('}' == *context->json) {
+            context->json ++;
+            value->type = JSON_OBJECT;
+            value->u.object.size = size;
+            size *= sizeof(json_value);
+            value->u.object.member = (json_member *)malloc(size);
+            memcpy(value->u.object.member, json_context_pop(context, size), size);
+
+            return JSON_PARSE_OK;
+        } else {
+            ret = JSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET;
+            break;
+        }
+    }
+
+    for ( i = 0; i < size; ++i) {
+        json_member *mem = json_context_pop(context, sizeof(json_member));
+        json_value_free(&mem->value);
+    }
+
+    return ret;
+}
+
 /* value = null / false / true */
 static int json_parse_value(json_context *context, json_value *value) {
     switch (*context->json) {
@@ -290,6 +386,7 @@ static int json_parse_value(json_context *context, json_value *value) {
         case 'f': return json_parse_literal(context, value, "false", JSON_FALSE);
         case '\"': return json_parse_string(context, value);
         case '[': return json_parse_array(context, value);
+        case '{': return json_parse_object(context, value);
         case '\0': return JSON_PARSE_EXPECT_VALUE;
         default : return json_parse_number(context, value);
     }
@@ -304,7 +401,7 @@ void json_value_free(json_value *value) {
         free(value->u.string.str);
     } else if (JSON_ARRAY == value->type) {
 
-        for (i = 0; i < value->u.array.len; ++i) {
+        for (i = 0; i < value->u.array.size; ++i) {
             json_value_free(&value->u.array.value[i]);
         }
 
@@ -375,7 +472,7 @@ const json_value* json_get_array_element(const json_value *value, unsigned index
 size_t json_get_array_size(const json_value *value)
 {
     assert(NULL != value && JSON_ARRAY == value->type);
-    return value->u.array.len;
+    return value->u.array.size;
 }
 
 
@@ -403,6 +500,23 @@ int json_parse(json_value* value, const char* json) {
 json_type json_get_type(const json_value *value) {
     assert(value != NULL);
     return value->type;
+}
+
+
+size_t json_get_object_size(const json_value *value) {
+
+}
+
+const char* json_get_object_key(const json_value *value, unsigned index) {
+
+}
+
+size_t json_get_object_key_length(const json_value *value, unsigned index) {
+
+}
+
+json_value* json_get_object_value(const json_value *value, unsigned index) {
+
 }
 
 
