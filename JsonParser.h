@@ -66,7 +66,7 @@ size_t json_get_string_length(const json_value *value);
 const char* json_get_string(const json_value *value);
 void json_set_string(json_value *value, const char * s, size_t len);
 
-const json_value* json_get_array_element(const json_value *value, unsigned index);
+json_value* json_get_array_element(const json_value *value, unsigned index);
 size_t json_get_array_size(const json_value *value);
 
 size_t json_get_object_size(const json_value *value);

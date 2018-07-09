@@ -323,13 +323,14 @@ static int json_parse_object(json_context *context, json_value *value) {
             break;
         }
 
-        char *str; size_t len;
-        if ((ret = json_parse_string_raw(context, &str, &len)) != JSON_PARSE_OK) {
+        char *str;
+        if ((ret = json_parse_string_raw(context, &str, &member.key_len)) != JSON_PARSE_OK) {
             break;
         }
 
-        member.key = str;
-        member.key_len = len;
+        member.key = (char *)malloc(member.key_len + 1);
+        memcpy(member.key , str, member.key_len);
+        member.key[member.key_len] = '\0';
 
         /*parse ws colon ws*/
         json_parse_whitespace(context);
@@ -341,6 +342,7 @@ static int json_parse_object(json_context *context, json_value *value) {
 
         context->json ++;
 
+        json_parse_whitespace(context);
         /* parse value */
         if ((ret = json_parse_value(context, &member.value)) != JSON_PARSE_OK) {
             break;
@@ -357,11 +359,12 @@ static int json_parse_object(json_context *context, json_value *value) {
             json_parse_whitespace(context);
         } else if ('}' == *context->json) {
             context->json ++;
+            size_t s = sizeof(json_member) * size;
+
             value->type = JSON_OBJECT;
             value->u.object.size = size;
-            size *= sizeof(json_value);
-            value->u.object.member = (json_member *)malloc(size);
-            memcpy(value->u.object.member, json_context_pop(context, size), size);
+            value->u.object.member = (json_member *)malloc(s);
+            memcpy(value->u.object.member = (json_member *)malloc(s), json_context_pop(context, s), s);
 
             return JSON_PARSE_OK;
         } else {
@@ -370,8 +373,10 @@ static int json_parse_object(json_context *context, json_value *value) {
         }
     }
 
+    free(member.key);
     for ( i = 0; i < size; ++i) {
         json_member *mem = json_context_pop(context, sizeof(json_member));
+        free(mem->key);
         json_value_free(&mem->value);
     }
 
@@ -463,7 +468,7 @@ void json_set_string(json_value *value, const char * s, size_t len) {
     value->type = JSON_STRING;
 }
 
-const json_value* json_get_array_element(const json_value *value, unsigned index)
+json_value* json_get_array_element(const json_value *value, unsigned index)
 {
     assert(NULL != value && JSON_ARRAY == value->type);
     return &value->u.array.value[index];
@@ -504,19 +509,26 @@ json_type json_get_type(const json_value *value) {
 
 
 size_t json_get_object_size(const json_value *value) {
-
+    assert(NULL != value && JSON_OBJECT == value->type);
+    return value->u.object.size;
 }
 
 const char* json_get_object_key(const json_value *value, unsigned index) {
-
+    assert(NULL != value && JSON_OBJECT == value->type);
+    assert(index < value->u.object.size);
+    return (const char *) value->u.object.member[index].key;
 }
 
 size_t json_get_object_key_length(const json_value *value, unsigned index) {
-
+    assert(NULL != value && JSON_OBJECT == value->type);
+    assert(index < value->u.object.size);
+    return value->u.object.member[index].key_len;
 }
 
 json_value* json_get_object_value(const json_value *value, unsigned index) {
-
+    assert(NULL != value && JSON_OBJECT == value->type);
+    assert(index < value->u.object.size);
+    return &value->u.object.member[index].value;
 }
 
 
