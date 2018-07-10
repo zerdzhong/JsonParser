@@ -397,23 +397,25 @@ static int json_parse_value(json_context *context, json_value *value) {
     }
 }
 
-void json_value_free(json_value *value) {
-    int i = 0;
+int json_parse(json_value* value, const char* json) {
+    json_context context;
+    int ret;
+    assert(value != NULL);
+    context.json = json;
+    context.stack = NULL;
+    context.size = context.top = 0;
 
-    assert(NULL != value);
+    json_value_init(value);
+    json_parse_whitespace(&context);
 
-    if (JSON_STRING == value->type) {
-        free(value->u.string.str);
-    } else if (JSON_ARRAY == value->type) {
+    if (JSON_PARSE_OK == (ret = json_parse_value(&context, value))) {
 
-        for (i = 0; i < value->u.array.size; ++i) {
-            json_value_free(&value->u.array.value[i]);
-        }
-
-        free(value->u.array.value);
     }
 
-    value->type = JSON_NULL;
+    assert(0 == context.top);
+    free(context.stack);
+
+    return ret;
 }
 
 double json_get_number(const json_value *value) {
@@ -480,28 +482,6 @@ size_t json_get_array_size(const json_value *value)
     return value->u.array.size;
 }
 
-
-int json_parse(json_value* value, const char* json) {
-    json_context context;
-    int ret;
-    assert(value != NULL);
-    context.json = json;
-    context.stack = NULL;
-    context.size = context.top = 0;
-
-    json_value_init(value);
-    json_parse_whitespace(&context);
-
-    if (JSON_PARSE_OK == (ret = json_parse_value(&context, value))) {
-
-    }
-
-    assert(0 == context.top);
-    free(context.stack);
-
-    return ret;
-}
-
 json_type json_get_type(const json_value *value) {
     assert(value != NULL);
     return value->type;
@@ -531,4 +511,21 @@ json_value* json_get_object_value(const json_value *value, unsigned index) {
     return &value->u.object.member[index].value;
 }
 
+void json_value_free(json_value *value) {
+    int i = 0;
 
+    assert(NULL != value);
+
+    if (JSON_STRING == value->type) {
+        free(value->u.string.str);
+    } else if (JSON_ARRAY == value->type) {
+
+        for (i = 0; i < value->u.array.size; ++i) {
+            json_value_free(&value->u.array.value[i]);
+        }
+
+        free(value->u.array.value);
+    }
+
+    value->type = JSON_NULL;
+}
