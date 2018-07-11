@@ -1,6 +1,7 @@
 #include "JsonParser.h"
 #include <assert.h>
 #include <memory.h>
+#include <stdio.h>
 
 typedef struct {
     const char *json;
@@ -26,7 +27,6 @@ static void* json_context_push(json_context *context, size_t size) {
         if (0 == context->size) {
             context->size = JSON_PARSE_STACK_INIT_SIZE;
         }
-
         while (context->top + size >= context->size) {
             /* 1.5 times */
             context->size += context->size >> 1;
@@ -191,7 +191,7 @@ static int json_parse_string_raw(json_context *context, char **str, size_t *len)
                     case 'n': PUTC(context,'\n'); break;
                     case 'r': PUTC(context,'\r'); break;
                     case 't': PUTC(context,'\t'); break;
-                    case 'u':
+                    case 'u':{
                         if (!(p = json_parse_hex(p, &u))) {
                             STRING_PARSE_ERR(JSON_PARSE_INVALID_UNICODE_HEX);
                         }
@@ -210,7 +210,7 @@ static int json_parse_string_raw(json_context *context, char **str, size_t *len)
                             u = 0x10000 + (H - 0xD800) * 0x400 +  (L - 0xDC00);
                         }
                         json_encode_utf8(context, u);
-                        break;
+                    }break;
                     default: {
                         STRING_PARSE_ERR(JSON_PARSE_MISS_QUOTATION_MARK);
                     }
@@ -416,6 +416,43 @@ int json_parse(json_value* value, const char* json) {
     free(context.stack);
 
     return ret;
+}
+
+#ifndef JSON_PARSE_STRINGIFY_INIT_SIZE
+#define JSON_PARSE_STRINGIFY_INIT_SIZE 256
+#endif
+
+#define PUTS(context, str, length) \
+    do {\
+        memcpy(json_context_push(context, length), str, length);\
+    } while(0)
+
+
+char* json_stringify(const json_value* value, size_t* length) {
+    json_context context;
+    char *json;
+    assert(NULL != value && NULL != length);
+
+    switch (value->type) {
+        case JSON_NULL: {PUTS(&context, "null", 4); break;}
+        case JSON_TRUE: {PUTS(&context, "true", 4); }break;
+        case JSON_FALSE: {PUTS(&context, "false", 5); }break;
+        case JSON_NUMBER: {
+            char* buffer = json_context_push(&context, 32);
+            int length = sprintf(buffer, "%.17g", value->u.number);
+            context.top -= 32 - length;
+        }break;
+        case JSON_STRING:break;
+        case JSON_ARRAY:break;
+        case JSON_OBJECT:break;
+    }
+
+    *length = context.top ;
+
+    PUTC(&context, '\0');
+    json = context.stack;
+
+    return json;
 }
 
 double json_get_number(const json_value *value) {

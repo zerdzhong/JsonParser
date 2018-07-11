@@ -51,6 +51,7 @@ enum {
 #define json_set_null(v) do {json_value_free((v));} while(0)
 
 
+char* json_stringify(const json_value* v, size_t* length);
 int json_parse(json_value* v, const char* json);
 json_type json_get_type(const json_value *value);
 

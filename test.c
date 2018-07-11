@@ -304,6 +304,33 @@ static void test_parse_object() {
     json_value_free(&v);
 }
 
+#define TEST_JSON_STRINGIFY(json) \
+    do {\
+        json_value v;\
+        size_t length = 0;\
+        char *json2;\
+        json_value_init(&v);\
+        EXPECT_EQ_INT(JSON_PARSE_OK, json_parse(&v, json));\
+        json2 = json_stringify(&v, &length);\
+        EXPECT_EQ_STRING(json, json2, length);\
+        json_value_free(&v);\
+        free(json2);\
+    }while(0)
+
+
+static void testJsonStringify()
+{
+    TEST_JSON_STRINGIFY("null");
+    TEST_JSON_STRINGIFY("true");
+    TEST_JSON_STRINGIFY("false");
+
+    TEST_JSON_STRINGIFY("0");
+    TEST_JSON_STRINGIFY("-1");
+    TEST_JSON_STRINGIFY("1.5");
+    TEST_JSON_STRINGIFY("-1.5");
+
+}
+
 int main(int argc, char const *argv[]) {
 	test_parse();
 	test_parse_number();
@@ -321,6 +348,8 @@ int main(int argc, char const *argv[]) {
     test_parse_miss_key();
     test_parse_miss_colon();
     test_parse_miss_comma_or_curly_bracket();
+
+    testJsonStringify();
 
     printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
