@@ -315,8 +315,7 @@ static void test_parse_object() {
         EXPECT_EQ_STRING(json, json2, length);\
         json_value_free(&v);\
         free(json2);\
-    }while(0)
-
+    } while(0);
 
 static void testJsonStringify()
 {
@@ -329,6 +328,11 @@ static void testJsonStringify()
     TEST_JSON_STRINGIFY("1.5");
     TEST_JSON_STRINGIFY("-1.5");
 
+    TEST_JSON_STRINGIFY("\"\"");
+    TEST_JSON_STRINGIFY("\"Hello\"");
+    TEST_JSON_STRINGIFY("\"Hello\\nWorld\"");
+    TEST_JSON_STRINGIFY("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"");
+    TEST_JSON_STRINGIFY("\"Hello\\u0000World\"");
 }
 
 int main(int argc, char const *argv[]) {

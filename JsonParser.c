@@ -428,21 +428,62 @@ int json_parse(json_value* value, const char* json) {
     } while(0)
 
 
+static void json_stringify_string(json_context *context, const char* s, size_t len) {
+    static const char hex_digits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+    size_t i = 0, size;
+    char* head, *p;
+    assert(NULL != context && NULL != s);
+
+    p = head = json_context_push(context, size = len * 6 + 2);
+
+    *p++ = '"';
+
+    for (i = 0; i < len; i++) {
+        unsigned char ch = (unsigned char)s[i];
+        switch (ch) {
+            case '\\': *p++ = '\\';*p++ = '\\'; break;
+            case '\"': *p++ = '\\';*p++ = '\"'; break;
+            case '\b': *p++ = '\\';*p++ = 'b'; break;
+            case '\f': *p++ = '\\';*p++ = 'f'; break;
+            case '\n': *p++ = '\\';*p++ = 'n'; break;
+            case '\r': *p++ = '\\';*p++ = 'r'; break;
+            case '\t': *p++ = '\\';*p++ = 't'; break;
+
+            default: {
+                if (ch < 0x20) {
+                    *p++ = '\\'; *p++ = 'u'; *p++ = '0'; *p++ = '0';
+                    *p++ = hex_digits[ch >> 4];
+                    *p++ = hex_digits[ch & 15];
+                } else {
+                    *p++ = s[i];
+                }
+            }
+        }
+    }
+
+    *p++ = '"';
+    context->top -= size - (p - head);
+}
+
 char* json_stringify(const json_value* value, size_t* length) {
     json_context context;
     char *json;
     assert(NULL != value && NULL != length);
 
+    context.stack = (char*)malloc(context.size = JSON_PARSE_STRINGIFY_INIT_SIZE);
+
     switch (value->type) {
-        case JSON_NULL: {PUTS(&context, "null", 4); break;}
+        case JSON_NULL: {PUTS(&context, "null", 4); }break;
         case JSON_TRUE: {PUTS(&context, "true", 4); }break;
         case JSON_FALSE: {PUTS(&context, "false", 5); }break;
         case JSON_NUMBER: {
             char* buffer = json_context_push(&context, 32);
-            int length = sprintf(buffer, "%.17g", value->u.number);
-            context.top -= 32 - length;
+            int num_len = sprintf(buffer, "%.17g", value->u.number);
+            context.top -= 32 - num_len;
         }break;
-        case JSON_STRING:break;
+        case JSON_STRING: {
+            json_stringify_string(&context, value->u.string.str, value->u.string.len);
+        }break;
         case JSON_ARRAY:break;
         case JSON_OBJECT:break;
     }
